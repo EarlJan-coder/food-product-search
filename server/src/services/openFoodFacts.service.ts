@@ -136,8 +136,8 @@ export async function searchProducts(
   const data =
     (await response.json()) as OpenFoodFactsSearchResponse;
 
-  const localizedField =
-    languageFields[language] ?? languageFields.en;
+  const localizedField: keyof OpenFoodFactsProduct =
+    languageFields[language] ?? "product_name_en";
 
   return (data.products ?? [])
     .filter((product) => product.code)
@@ -194,8 +194,8 @@ export async function getProductByBarcode(
 
   const product = data.product;
 
-  const localizedField =
-    languageFields[language] ?? languageFields.en;
+  const localizedField: keyof OpenFoodFactsProduct =
+    languageFields[language] ?? "product_name_en";
 
   return {
     barcode: product.code ?? barcode,

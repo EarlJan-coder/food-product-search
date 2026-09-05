@@ -1,7 +1,9 @@
+import { stripeWebhookController } from './controllers/stripe-webhook.controller.js';
 import express from 'express';
 import  cors from 'cors';
 import prisma from './lib/prisma.js';
 import productRoutes from "./routes/product.routes.js"
+import subscriptionRoutes from "./routes/subscription.route.js"
 
 const app = express();
 
@@ -11,9 +13,17 @@ app.use(
     })
 );
 
+app.post(
+  "/api/webhooks/stripe",
+  express.raw({ type: "application/json" }),
+  stripeWebhookController,
+);
+
 app.use(express.json());
 
 app.use("/api/products", productRoutes)
+
+app.use("/api/subscriptions", subscriptionRoutes,);
 
 app.get("/health", async (_req, res) => {
     try {
