@@ -1,0 +1,59 @@
+# Dependencies
+server/node_modules/
+client/node_modules/
+client/.pnp
+client/.pnp.*
+client/.yarn/*
+!client/.yarn/patches
+!client/.yarn/plugins
+!client/.yarn/releases
+!client/.yarn/versions
+
+# Environment files
+server/.env
+.env*
+!.env.example
+
+# Build outputs
+server/dist/
+server/build/
+client/.next/
+client/out/
+client/build/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Agent/tool directories
+.devin/
+.agents/
+.cursor/
+.claude/
+
+# Cache directories
+.server/
+.prisma/
+.cache/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Miscellaneous
+*.pem
+*.bak
