@@ -20,6 +20,7 @@ server/build/
 client/.next/
 client/out/
 client/build/
+client/.git-backup/
 
 # Logs
 *.log
