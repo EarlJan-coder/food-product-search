@@ -1,15 +1,37 @@
 import request from 'supertest';
-import * as express from 'express';
+import express from 'express';
 import subscriptionRoutes from '../../src/routes/subscription.route';
-import prisma from '../../src/lib/prisma';
-import { createCheckoutSession, createPortalSession } from '../../src/services/stripe.service';
 
-jest.mock('../../src/lib/prisma');
-jest.mock('../../src/services/stripe.service');
+jest.mock('../../src/lib/prisma', () => {
+  const mockUserFindUnique = jest.fn();
+  return {
+    __esModule: true,
+    default: {
+      user: {
+        findUnique: mockUserFindUnique,
+      },
+    },
+    mockUserFindUnique,
+  };
+});
 
-const mockPrisma = prisma as jest.MockedObject<typeof prisma>;
-const mockCreateCheckoutSession = createCheckoutSession as jest.MockedFunction<typeof createCheckoutSession>;
-const mockCreatePortalSession = createPortalSession as jest.MockedFunction<typeof createPortalSession>;
+jest.mock('../../src/services/stripe.service', () => {
+  const mockCreateCheckoutSession = jest.fn();
+  const mockCreatePortalSession = jest.fn();
+  return {
+    __esModule: true,
+    createCheckoutSession: mockCreateCheckoutSession,
+    createPortalSession: mockCreatePortalSession,
+    mockCreateCheckoutSession,
+    mockCreatePortalSession,
+  };
+});
+
+const prismaModule = require('../../src/lib/prisma');
+const stripeModule = require('../../src/services/stripe.service');
+const mockUserFindUnique = prismaModule.mockUserFindUnique;
+const mockCreateCheckoutSession = stripeModule.mockCreateCheckoutSession;
+const mockCreatePortalSession = stripeModule.mockCreatePortalSession;
 
 function createApp() {
   const app = express();
@@ -28,7 +50,7 @@ describe('Subscription Routes', () => {
 
   describe('POST /api/subscriptions/checkout', () => {
     it('creates checkout session for inactive user', async () => {
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      mockUserFindUnique.mockResolvedValue({
         id: 'user-123',
         email: 'demo@example.com',
         subscriptionStatus: 'inactive',
@@ -48,7 +70,7 @@ describe('Subscription Routes', () => {
     });
 
     it('returns 400 when user already has active subscription', async () => {
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      mockUserFindUnique.mockResolvedValue({
         id: 'user-123',
         email: 'demo@example.com',
         subscriptionStatus: 'active',
@@ -61,7 +83,7 @@ describe('Subscription Routes', () => {
     });
 
     it('returns 404 when demo user not found', async () => {
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+      mockUserFindUnique.mockResolvedValue(null);
 
       const response = await request(app)
         .post('/api/subscriptions/checkout');
@@ -72,7 +94,7 @@ describe('Subscription Routes', () => {
 
   describe('POST /api/subscriptions/portal', () => {
     it('creates portal session for subscribed user', async () => {
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      mockUserFindUnique.mockResolvedValue({
         id: 'user-123',
         email: 'demo@example.com',
         stripeCustomerId: 'cus_123',
@@ -92,7 +114,7 @@ describe('Subscription Routes', () => {
     });
 
     it('returns 400 when user has no stripe customer id', async () => {
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      mockUserFindUnique.mockResolvedValue({
         id: 'user-123',
         email: 'demo@example.com',
         stripeCustomerId: null,

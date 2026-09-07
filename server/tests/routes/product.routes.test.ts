@@ -1,15 +1,43 @@
 import request from 'supertest';
-import * as express from 'express';
+import express from 'express';
 import productRoutes from '../../src/routes/product.routes';
-import { searchProducts, getProductByBarcode } from '../../src/services/openFoodFacts.service';
-import prisma from '../../src/lib/prisma';
 
-jest.mock('../../src/services/openFoodFacts.service');
-jest.mock('../../src/lib/prisma');
+jest.mock('../../src/services/openFoodFacts.service', () => {
+  const mockSearchProducts = jest.fn();
+  const mockGetProductByBarcode = jest.fn();
+  return {
+    __esModule: true,
+    searchProducts: mockSearchProducts,
+    getProductByBarcode: mockGetProductByBarcode,
+    mockSearchProducts,
+    mockGetProductByBarcode,
+  };
+});
 
-const mockSearchProducts = searchProducts as jest.MockedFunction<typeof searchProducts>;
-const mockGetProductByBarcode = getProductByBarcode as jest.MockedFunction<typeof getProductByBarcode>;
-const mockPrisma = prisma as jest.MockedObject<typeof prisma>;
+jest.mock('../../src/lib/prisma', () => {
+  const mockUserFindUnique = jest.fn();
+  const mockSearchCreate = jest.fn();
+  return {
+    __esModule: true,
+    default: {
+      user: {
+        findUnique: mockUserFindUnique,
+      },
+      search: {
+        create: mockSearchCreate,
+      },
+    },
+    mockUserFindUnique,
+    mockSearchCreate,
+  };
+});
+
+const openFoodFactsModule = require('../../src/services/openFoodFacts.service');
+const prismaModule = require('../../src/lib/prisma');
+const mockSearchProducts = openFoodFactsModule.mockSearchProducts;
+const mockGetProductByBarcode = openFoodFactsModule.mockGetProductByBarcode;
+const mockUserFindUnique = prismaModule.mockUserFindUnique;
+const mockSearchCreate = prismaModule.mockSearchCreate;
 
 function createApp() {
   const app = express();
@@ -38,8 +66,8 @@ describe('Product Routes', () => {
       ];
 
       mockSearchProducts.mockResolvedValue(mockProducts);
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({ id: 'user-1' });
-      (mockPrisma.search.create as jest.Mock).mockResolvedValue({});
+      mockUserFindUnique.mockResolvedValue({ id: 'user-1' });
+      mockSearchCreate.mockResolvedValue({});
 
       const response = await request(app)
         .get('/api/products/search')
@@ -102,7 +130,7 @@ describe('Product Routes', () => {
       };
 
       mockGetProductByBarcode.mockResolvedValue(mockProduct);
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({ subscriptionStatus: 'inactive' });
+      mockUserFindUnique.mockResolvedValue({ subscriptionStatus: 'inactive' });
 
       const response = await request(app)
         .get('/api/products/123456789')
@@ -122,7 +150,7 @@ describe('Product Routes', () => {
       };
 
       mockGetProductByBarcode.mockResolvedValue(mockProduct);
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({ subscriptionStatus: 'active' });
+      mockUserFindUnique.mockResolvedValue({ subscriptionStatus: 'active' });
 
       const response = await request(app)
         .get('/api/products/123456789')
@@ -135,7 +163,7 @@ describe('Product Routes', () => {
 
   describe('GET /api/products/:barcode/nutrition', () => {
     it('returns 403 when user does not have active subscription', async () => {
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({ subscriptionStatus: 'inactive' });
+      mockUserFindUnique.mockResolvedValue({ subscriptionStatus: 'inactive' });
 
       const response = await request(app)
         .get('/api/products/123456789/nutrition')
