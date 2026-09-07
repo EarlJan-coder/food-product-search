@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   searchProducts,
   getProductNutrition,
+  createCheckoutSession,
   type Product,
   type Nutrition,
 } from "@/lib/api";
@@ -69,7 +70,51 @@ export default function Home() {
   async function handleProductSelect(product: Product) {
   setSelectedProduct(product);
   setNutrition(null);
+  setNutritionError("");
+  setNutritionLoading(true);
+
+  try {
+    const data = await getProductNutrition(
+      product.barcode,
+      language,
+    );
+
+    setNutrition(data.nutrition);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "SUBSCRIPTION_REQUIRED"
+    ) {
+      setNutritionError(
+        "Active subscription required to view nutritional information.",
+      );
+    } else {
+      console.error(error);
+
+      setNutritionError(
+        "Unable to retrieve nutritional information.",
+      );
+    }
+  } finally {
+    setNutritionLoading(false);
   }
+}
+
+  async function handleSubscribe() {
+  try {
+    const data = await createCheckoutSession();
+
+    if (data.url) {
+      window.location.href = data.url;
+    }
+  } catch (error) {
+    console.error("Subscription checkout failed:", error);
+
+    setNutritionError(
+      "Unable to start the subscription checkout.",
+    );
+  }
+}
 
   function handleCloseDetails() {
     setSelectedProduct(null);
@@ -77,21 +122,25 @@ export default function Home() {
     setNutritionError("");
   }
 
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.key === "Escape" && selectedProduct) {
+        handleCloseDetails();
+      }
+    },
+    [selectedProduct]
+  );
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [handleKeyDown]);
+
   return (
     <main className="min-h-screen bg-gray-50 px-6 py-12">
       <div className="mx-auto max-w-5xl">
-        {/* Header */}
-        <div className="mb-10">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900">
-            Food Product Search
-          </h1>
-
-          <p className="mt-2 text-gray-600">
-            Search packaged food products and view their
-            nutritional information.
-          </p>
-        </div>
-
         {/* Search Form */}
         <form
           onSubmit={handleSearch}
@@ -240,190 +289,223 @@ export default function Home() {
             )}
         </div>
 
-        {/* Product Details */}
+        {/* Product Details Modal */}
         {selectedProduct && (
-          <section className="mt-10 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-            {/* Details Header */}
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">
-                  {selectedProduct.brand}
-                </p>
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 z-40 animate-fade-in bg-black/50 backdrop-blur-sm"
+              onClick={handleCloseDetails}
+              aria-hidden="true"
+            />
 
-                <h2 className="mt-1 text-2xl font-bold text-gray-900">
-                  {selectedProduct.name}
-                </h2>
-
-                <p className="mt-2 text-sm text-gray-500">
-                  Barcode: {selectedProduct.barcode}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleCloseDetails}
-                className="rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-100"
-              >
-                Close
-              </button>
-            </div>
-
-            {/* Product Image */}
-            {selectedProduct.imageUrl && (
-              <div className="mt-6 flex justify-center rounded-lg bg-gray-100 p-6">
-                <img
-                  src={selectedProduct.imageUrl}
-                  alt={selectedProduct.name}
-                  className="h-64 w-full object-contain"
-                />
-              </div>
-            )}
-
-            {/* Nutrition Section */}
-            <div className="mt-6 rounded-lg bg-gray-50 p-5">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Nutritional Information
-              </h3>
-
-              {/* Nutrition Loading */}
-              {nutritionLoading && (
-                <p className="mt-3 text-sm text-gray-500">
-                  Checking subscription and loading
-                  nutritional information...
-                </p>
-              )}
-
-              {/* Subscription Required */}
-              {!nutritionLoading &&
-                nutritionError ===
-                  "Active subscription required to view nutritional information." && (
-                  <div className="mt-4 rounded-lg border border-gray-200 bg-white p-5">
-                    <p className="text-sm text-gray-600">
-                      Nutritional information is available
-                      to active subscribers only.
+            {/* Modal */}
+            <div
+              className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="product-title"
+            >
+              <section className="max-h-[85vh] w-full animate-slide-up overflow-y-auto rounded-t-2xl bg-white p-6 shadow-xl sm:max-w-2xl sm:rounded-2xl">
+                {/* Details Header */}
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">
+                      {selectedProduct.brand}
                     </p>
 
-                    <button
-                      type="button"
-                      className="mt-4 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-gray-700"
+                    <h2
+                      id="product-title"
+                      className="mt-1 text-2xl font-bold text-gray-900"
                     >
-                      Subscribe to view nutrition
-                    </button>
+                      {selectedProduct.name}
+                    </h2>
+
+                    <p className="mt-2 text-sm text-gray-500">
+                      Barcode: {selectedProduct.barcode}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleCloseDetails}
+                    className="rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-100"
+                  >
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Product Image */}
+                {selectedProduct.imageUrl && (
+                  <div className="mt-6 flex justify-center rounded-lg bg-gray-100 p-6">
+                    <img
+                      src={selectedProduct.imageUrl}
+                      alt={selectedProduct.name}
+                      className="h-64 w-full object-contain"
+                    />
                   </div>
                 )}
 
-              {/* Nutrition Error */}
-              {!nutritionLoading &&
-                nutritionError &&
-                nutritionError !==
-                  "Active subscription required to view nutritional information." && (
-                  <p className="mt-3 text-sm text-red-600">
-                    {nutritionError}
-                  </p>
-                )}
+                {/* Nutrition Section */}
+                <div className="mt-6 rounded-lg bg-gray-50 p-5">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Nutritional Information
+                  </h3>
 
-              {/* Nutrition Data */}
-              {!nutritionLoading &&
-                !nutritionError &&
-                nutrition && (
-                  <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <div className="rounded-lg bg-white p-4 ring-1 ring-gray-200">
-                      <p className="text-sm text-gray-500">
-                        Energy
+                  {/* Nutrition Loading */}
+                  {nutritionLoading && (
+                    <p className="mt-3 text-sm text-gray-500">
+                      Checking subscription and loading
+                      nutritional information...
+                    </p>
+                  )}
+
+                  {/* Subscription Required */}
+                  {!nutritionLoading &&
+                    nutritionError ===
+                      "Active subscription required to view nutritional information." && (
+                      <div className="mt-4 rounded-lg border border-gray-200 bg-white p-5">
+                        <p className="text-sm text-gray-600">
+                          Nutritional information is available
+                          to active subscribers only.
+                        </p>
+
+                        <button
+                          type="button"
+                          onClick={handleSubscribe}
+                          className="mt-4 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-gray-700"
+                        >
+                          Subscribe to view nutrition
+                        </button>
+                      </div>
+                    )}
+
+                  {/* Nutrition Error */}
+                  {!nutritionLoading &&
+                    nutritionError &&
+                    nutritionError !==
+                      "Active subscription required to view nutritional information." && (
+                      <p className="mt-3 text-sm text-red-600">
+                        {nutritionError}
                       </p>
+                    )}
 
-                      <p className="mt-1 text-xl font-semibold text-gray-900">
-                        {nutrition.energyKcal ?? "N/A"} kcal
+                  {/* Nutrition Data */}
+                  {!nutritionLoading &&
+                    !nutritionError &&
+                    nutrition && (
+                      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="rounded-lg bg-white p-4 ring-1 ring-gray-200">
+                          <p className="text-sm text-gray-500">
+                            Energy
+                          </p>
+
+                          <p className="mt-1 text-xl font-semibold text-gray-900">
+                            {nutrition.energyKcal ?? "N/A"} kcal
+                          </p>
+
+                          <p className="mt-1 text-xs text-gray-400">
+                            per 100g
+                          </p>
+                        </div>
+
+                        <div className="rounded-lg bg-white p-4 ring-1 ring-gray-200">
+                          <p className="text-sm text-gray-500">
+                            Fat
+                          </p>
+
+                          <p className="mt-1 text-xl font-semibold text-gray-900">
+                            {nutrition.fat ?? "N/A"} g
+                          </p>
+
+                          <p className="mt-1 text-xs text-gray-400">
+                            per 100g
+                          </p>
+                        </div>
+
+                        <div className="rounded-lg bg-white p-4 ring-1 ring-gray-200">
+                          <p className="text-sm text-gray-500">
+                            Carbohydrates
+                          </p>
+
+                          <p className="mt-1 text-xl font-semibold text-gray-900">
+                            {nutrition.carbohydrates ?? "N/A"} g
+                          </p>
+
+                          <p className="mt-1 text-xs text-gray-400">
+                            per 100g
+                          </p>
+                        </div>
+
+                        <div className="rounded-lg bg-white p-4 ring-1 ring-gray-200">
+                          <p className="text-sm text-gray-500">
+                            Sugars
+                          </p>
+
+                          <p className="mt-1 text-xl font-semibold text-gray-900">
+                            {nutrition.sugars ?? "N/A"} g
+                          </p>
+
+                          <p className="mt-1 text-xs text-gray-400">
+                            per 100g
+                          </p>
+                        </div>
+
+                        <div className="rounded-lg bg-white p-4 ring-1 ring-gray-200">
+                          <p className="text-sm text-gray-500">
+                            Protein
+                          </p>
+
+                          <p className="mt-1 text-xl font-semibold text-gray-900">
+                            {nutrition.protein ?? "N/A"} g
+                          </p>
+
+                          <p className="mt-1 text-xs text-gray-400">
+                            per 100g
+                          </p>
+                        </div>
+
+                        <div className="rounded-lg bg-white p-4 ring-1 ring-gray-200">
+                          <p className="text-sm text-gray-500">
+                            Salt
+                          </p>
+
+                          <p className="mt-1 text-xl font-semibold text-gray-900">
+                            {nutrition.salt ?? "N/A"} g
+                          </p>
+
+                          <p className="mt-1 text-xs text-gray-400">
+                            per 100g
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                  {/* No Nutrition Data */}
+                  {!nutritionLoading &&
+                    !nutritionError &&
+                    !nutrition && (
+                      <p className="mt-3 text-sm text-gray-500">
+                        No nutritional information available for
+                        this product.
                       </p>
-
-                      <p className="mt-1 text-xs text-gray-400">
-                        per 100g
-                      </p>
-                    </div>
-
-                    <div className="rounded-lg bg-white p-4 ring-1 ring-gray-200">
-                      <p className="text-sm text-gray-500">
-                        Fat
-                      </p>
-
-                      <p className="mt-1 text-xl font-semibold text-gray-900">
-                        {nutrition.fat ?? "N/A"} g
-                      </p>
-
-                      <p className="mt-1 text-xs text-gray-400">
-                        per 100g
-                      </p>
-                    </div>
-
-                    <div className="rounded-lg bg-white p-4 ring-1 ring-gray-200">
-                      <p className="text-sm text-gray-500">
-                        Carbohydrates
-                      </p>
-
-                      <p className="mt-1 text-xl font-semibold text-gray-900">
-                        {nutrition.carbohydrates ?? "N/A"} g
-                      </p>
-
-                      <p className="mt-1 text-xs text-gray-400">
-                        per 100g
-                      </p>
-                    </div>
-
-                    <div className="rounded-lg bg-white p-4 ring-1 ring-gray-200">
-                      <p className="text-sm text-gray-500">
-                        Sugars
-                      </p>
-
-                      <p className="mt-1 text-xl font-semibold text-gray-900">
-                        {nutrition.sugars ?? "N/A"} g
-                      </p>
-
-                      <p className="mt-1 text-xs text-gray-400">
-                        per 100g
-                      </p>
-                    </div>
-
-                    <div className="rounded-lg bg-white p-4 ring-1 ring-gray-200">
-                      <p className="text-sm text-gray-500">
-                        Protein
-                      </p>
-
-                      <p className="mt-1 text-xl font-semibold text-gray-900">
-                        {nutrition.protein ?? "N/A"} g
-                      </p>
-
-                      <p className="mt-1 text-xs text-gray-400">
-                        per 100g
-                      </p>
-                    </div>
-
-                    <div className="rounded-lg bg-white p-4 ring-1 ring-gray-200">
-                      <p className="text-sm text-gray-500">
-                        Salt
-                      </p>
-
-                      <p className="mt-1 text-xl font-semibold text-gray-900">
-                        {nutrition.salt ?? "N/A"} g
-                      </p>
-
-                      <p className="mt-1 text-xs text-gray-400">
-                        per 100g
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-              {/* No Nutrition Data */}
-              {!nutritionLoading &&
-                !nutritionError &&
-                !nutrition && (
-                  <p className="mt-3 text-sm text-gray-500">
-                    No nutritional information available for
-                    this product.
-                  </p>
-                )}
+                    )}
+                </div>
+              </section>
             </div>
-          </section>
+          </>
         )}
       </div>
     </main>

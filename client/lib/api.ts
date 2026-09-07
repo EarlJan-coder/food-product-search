@@ -1,17 +1,26 @@
-const API_URL="http://localhost:4000"
+const API_URL = "http://localhost:4000";
 
 export type Product = {
-    barcode: string;
-    name: string;
-    brand: string;
-    imageUrl: string | null;
+  barcode: string;
+  name: string;
+  brand: string;
+  imageUrl: string | null;
+};
+
+export type User = {
+  id: string;
+  email: string;
+  name: string;
+  subscriptionStatus: string;
+  stripeCustomerId: string | null;
+  createdAt: string;
 };
 
 export type ProductSearchResponse = {
-    query: string;
-    language: string;
-    count: number;
-    products: Product[];
+  query: string;
+  language: string;
+  count: number;
+  products: Product[];
 };
 
 export type Nutrition = {
@@ -24,51 +33,101 @@ export type Nutrition = {
 };
 
 export type ProductNutritionResponse = {
-    barcode: string,
-    nutrition: Nutrition,
+  barcode: string;
+  nutrition: Nutrition;
+};
+
+export async function getCurrentUser(): Promise<{ user: User }> {
+  const response = await fetch(`${API_URL}/api/user/me`);
+
+  if (!response.ok) {
+    throw new Error("Failed to get current user");
+  }
+
+  return response.json();
 }
 
 export async function getProductNutrition(
-    barcode: string,
-    language: string,
+  barcode: string,
+  language: string,
 ): Promise<ProductNutritionResponse> {
-    const params = new URLSearchParams({
-        lang: language
-    });
+  const params = new URLSearchParams({
+    lang: language,
+  });
 
-    const response = await fetch(
-        `${API_URL}/api/products/${encodeURIComponent(barcode,)}/nutrition?${params.toString()}`
+  const response = await fetch(
+    `${API_URL}/api/products/${encodeURIComponent(barcode)}/nutrition?${params.toString()}`,
+  );
+
+  if (response.status === 403) {
+    throw new Error("SUBSCRIPTION_REQUIRED");
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      "Failed to retrieve nutritional information",
     );
+  }
 
-    if (response.status === 403) {
-        throw new Error("SUBSCRIPTION_REQUIRED")
-    }
+  return response.json();
+}
 
-    if (!response.ok) {
-        throw new Error(
-            "Failed to retrieve nutritional information"
-        )
-    }
+export async function createCheckoutSession(): Promise<{
+  url: string;
+}> {
+  const response = await fetch(
+    `${API_URL}/api/subscriptions/checkout`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    },
+  );
 
-    return response.json();
+  if (!response.ok) {
+    throw new Error(
+      "Unable to create checkout session",
+    );
+  }
+
+  return response.json();
+}
+
+export async function createPortalSession(): Promise<{ url: string }> {
+  const response = await fetch(
+    `${API_URL}/api/subscriptions/portal`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Unable to create portal session");
+  }
+
+  return response.json();
 }
 
 export async function searchProducts(
-    query:  string,
-    language: string,
+  query: string,
+  language: string,
 ): Promise<ProductSearchResponse> {
-    const params = new URLSearchParams({
-        q: query,
-        lang: language,
-    });
+  const params = new URLSearchParams({
+    q: query,
+    lang: language,
+  });
 
-    const response = await fetch(
-        `${API_URL}/api/products/search?${params.toString()}`
-    );
+  const response = await fetch(
+    `${API_URL}/api/products/search?${params.toString()}`,
+  );
 
-    if (!response.ok) {
-        throw new Error("Failed to search products")
-    }
+  if (!response.ok) {
+    throw new Error("Failed to search products");
+  }
 
-    return response.json();
+  return response.json();
 }

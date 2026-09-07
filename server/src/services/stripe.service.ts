@@ -19,7 +19,7 @@ export async function createCheckoutSession(
                 quantity: 1,
             },
         ],
-        success_url: `${process.env.CLIENT_URL}/subscription/sucess`,
+        success_url: `${process.env.CLIENT_URL}/subscription/success`,
         cancel_url: `${process.env.CLIENT_URL}/subscription/cancel`,
         metadata:{
             userEmail: customerEmail,
@@ -27,4 +27,15 @@ export async function createCheckoutSession(
     })
 
     return session
+}
+
+export async function createPortalSession(
+    customerId: string,
+): Promise<Stripe.BillingPortal.Session> {
+    const session = await stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: `${process.env.CLIENT_URL}`,
+    });
+
+    return session;
 }

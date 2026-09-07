@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import prisma from "../lib/prisma.js";
-import { createCheckoutSession } from "../services/stripe.service.js";
+import { createCheckoutSession, createPortalSession } from "../services/stripe.service.js";
 
 export async function createCheckoutController(
   _req: Request,
@@ -30,7 +30,7 @@ export async function createCheckoutController(
     );
 
     return res.json({
-      checkoutUrl: session.url,
+      url: session.url,
     });
   } catch (error) {
     console.error("Checkout session creation failed:", error);
@@ -39,4 +39,43 @@ export async function createCheckoutController(
   error: "Unable to create checkout session",
 });
     }
+}
+
+export async function createPortalController(
+  _req: Request,
+  res: Response,
+) {
+  try {
+    const demoUser = await prisma.user.findUnique({
+      where: {
+        email: "demo@example.com",
+      },
+    });
+
+    if (!demoUser) {
+      return res.status(404).json({
+        error: "Demo user not found",
+      });
+    }
+
+    if (!demoUser.stripeCustomerId) {
+      return res.status(400).json({
+        error: "No Stripe customer found for this user",
+      });
+    }
+
+    const session = await createPortalSession(
+      demoUser.stripeCustomerId,
+    );
+
+    return res.json({
+      url: session.url,
+    });
+  } catch (error) {
+    console.error("Portal session creation failed:", error);
+
+    return res.status(500).json({
+      error: "Unable to create portal session",
+    });
+  }
 }
