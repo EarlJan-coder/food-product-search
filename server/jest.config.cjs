@@ -16,6 +16,11 @@ module.exports = {
       tsconfig: {
         module: 'commonjs',
         moduleResolution: 'node',
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true,
+        emitDecoratorMetadata: true,
+        experimentalDecorators: true,
+        verbatimModuleSyntax: false,
       },
     }],
   },

@@ -1,11 +1,25 @@
 import request from 'supertest';
-import * as express from 'express';
+import express from 'express';
 import userRoutes from '../../src/routes/user.route';
-import prisma from '../../src/lib/prisma';
 
-jest.mock('../../src/lib/prisma');
+jest.mock('../../src/lib/prisma', () => {
+  const mockFindUnique = jest.fn();
+  const mockFindFirst = jest.fn();
+  return {
+    __esModule: true,
+    default: {
+      user: {
+        findUnique: mockFindUnique,
+        findFirst: mockFindFirst,
+      },
+    },
+    mockFindUnique,
+    mockFindFirst,
+  };
+});
 
-const mockPrisma = prisma as jest.MockedObject<typeof prisma>;
+const prismaModule = require('../../src/lib/prisma');
+const mockUserFindUnique = prismaModule.mockFindUnique;
 
 function createApp() {
   const app = express();
@@ -33,7 +47,7 @@ describe('User Routes', () => {
         createdAt: new Date('2024-01-01T00:00:00.000Z'),
       };
 
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
+      mockUserFindUnique.mockResolvedValue(mockUser);
 
       const response = await request(app).get('/api/user/me');
 
@@ -48,7 +62,7 @@ describe('User Routes', () => {
     });
 
     it('returns 404 when demo user not found', async () => {
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+      mockUserFindUnique.mockResolvedValue(null);
 
       const response = await request(app).get('/api/user/me');
 
