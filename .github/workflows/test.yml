@@ -1,0 +1,121 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  server-tests:
+    name: Server Tests (Jest)
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: food_search
+          MYSQL_USER: food_search
+          MYSQL_PASSWORD: food_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install server dependencies
+        run: npm install --legacy-peer-deps
+        working-directory: server
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        working-directory: server
+        env:
+          DATABASE_URL: mysql://food_search:food_password@localhost:3306/food_search
+
+      - name: Run migrations
+        run: npx prisma migrate deploy
+        working-directory: server
+        env:
+          DATABASE_URL: mysql://food_search:food_password@localhost:3306/food_search
+
+      - name: Seed database
+        run: npm run db:seed
+        working-directory: server
+        env:
+          DATABASE_URL: mysql://food_search:food_password@localhost:3306/food_search
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PRICE_ID: ${{ secrets.STRIPE_PRICE_ID }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          CLIENT_URL: http://localhost:3000
+
+      - name: Run server tests
+        run: npm test
+        working-directory: server
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+          DATABASE_URL: mysql://food_search:food_password@localhost:3306/food_search
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PRICE_ID: ${{ secrets.STRIPE_PRICE_ID }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          CLIENT_URL: http://localhost:3000
+
+  client-tests:
+    name: Client Tests (Vitest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install client dependencies
+        run: npm install --legacy-peer-deps
+        working-directory: client
+
+      - name: Run client tests
+        run: npm test -- --run
+        working-directory: client
+
+  build:
+    name: Build Check
+    runs-on: ubuntu-latest
+    needs: [server-tests, client-tests]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install server dependencies and build
+        run: |
+          npm install --legacy-peer-deps
+          npm run build
+        working-directory: server
+
+      - name: Install client dependencies and build
+        run: |
+          npm install --legacy-peer-deps
+          npm run build
+        working-directory: client

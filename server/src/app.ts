@@ -4,6 +4,7 @@ import  cors from 'cors';
 import prisma from './lib/prisma.js';
 import productRoutes from "./routes/product.routes.js"
 import subscriptionRoutes from "./routes/subscription.route.js"
+import userRoutes from "./routes/user.route.js"
 
 const app = express();
 
@@ -23,7 +24,9 @@ app.use(express.json());
 
 app.use("/api/products", productRoutes)
 
-app.use("/api/subscriptions", subscriptionRoutes,);
+app.use("/api/subscriptions", subscriptionRoutes);
+
+app.use("/api/user", userRoutes);
 
 app.get("/health", async (_req, res) => {
     try {

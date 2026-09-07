@@ -82,7 +82,7 @@ async function fetchWithRetry(
 
       lastResponse = response;
 
-      if (response.status !== 503) {
+      if (response.status !== 503 && response.status !== 429) {
         return response;
       }
 
@@ -124,6 +124,16 @@ export async function searchProducts(
   url.searchParams.set("action", "process");
   url.searchParams.set("json", "1");
   url.searchParams.set("page_size", "20");
+  url.searchParams.set("fields", [
+    "code",
+    "product_name",
+    "product_name_en",
+    "product_name_nl",
+    "product_name_de",
+    "product_name_fr",
+    "brands",
+    "image_front_url",
+  ].join(","));
 
   const response = await fetchWithRetry(url.toString());
 

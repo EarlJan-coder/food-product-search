@@ -26,7 +26,7 @@ async function fetchWithRetry(url) {
                 return response;
             }
             lastResponse = response;
-            if (response.status !== 503) {
+            if (response.status !== 503 && response.status !== 429) {
                 return response;
             }
             if (attempt < MAX_RETRIES) {
@@ -52,6 +52,16 @@ export async function searchProducts(query, language = "en") {
     url.searchParams.set("action", "process");
     url.searchParams.set("json", "1");
     url.searchParams.set("page_size", "20");
+    url.searchParams.set("fields", [
+        "code",
+        "product_name",
+        "product_name_en",
+        "product_name_nl",
+        "product_name_de",
+        "product_name_fr",
+        "brands",
+        "image_front_url",
+    ].join(","));
     const response = await fetchWithRetry(url.toString());
     if (!response.ok) {
         throw new Error(`Open Food Facts request failed: ${response.status}`);
