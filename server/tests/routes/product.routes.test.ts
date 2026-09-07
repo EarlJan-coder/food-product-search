@@ -1,5 +1,5 @@
 import request from 'supertest';
-import express from 'express';
+import * as express from 'express';
 import productRoutes from '../../src/routes/product.routes';
 import { searchProducts, getProductByBarcode } from '../../src/services/openFoodFacts.service';
 import prisma from '../../src/lib/prisma';

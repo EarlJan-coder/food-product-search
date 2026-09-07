@@ -1,5 +1,5 @@
 import request from 'supertest';
-import express from 'express';
+import * as express from 'express';
 import subscriptionRoutes from '../../src/routes/subscription.route';
 import prisma from '../../src/lib/prisma';
 import { createCheckoutSession, createPortalSession } from '../../src/services/stripe.service';

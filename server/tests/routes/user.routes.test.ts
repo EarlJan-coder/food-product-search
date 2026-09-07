@@ -1,5 +1,5 @@
 import request from 'supertest';
-import express from 'express';
+import * as express from 'express';
 import userRoutes from '../../src/routes/user.route';
 import prisma from '../../src/lib/prisma';
 
